@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CyberShield | Enterprise Threat Intelligence Platform</title>
+    <meta name="description"
+        content="Advanced AI-Powered Cyber Threat Intelligence Platform powered by LLMs. Real-time threat feeds, IOC analysis, campaign detection, and AI-driven insights." />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Chart.js & D3 for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+
+    <!-- Particles for background -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
+    <!-- Marked for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="stylesheet" href="/static/css/main.css" />
+</head>
+
+<body>
+
+    <!-- Particle background -->
+    <div id="particles-js"></div>
+
+    <!-- Scan Line overlay -->
+    <div class="scanline"></div>
+
+    <!-- ─── Sidebar ─────────────────────────────────── -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 2L38 10V22C38 30.8 30 38 20 40C10 38 2 30.8 2 22V10L20 2Z" stroke="url(#shieldGrad)"
+                        stroke-width="2" fill="rgba(0,217,255,0.05)" />
+                    <path d="M20 8L32 14V22C32 27.5 26.6 33 20 34.5C13.4 33 8 27.5 8 22V14L20 8Z"
+                        fill="rgba(0,217,255,0.1)" stroke="url(#shieldGrad)" stroke-width="1.5" />
+                    <path d="M14 20L18 24L26 16" stroke="#00d9ff" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="shieldGrad" x1="2" y1="2" x2="38" y2="40">
+                            <stop offset="0%" stop-color="#00d9ff" />
+                            <stop offset="100%" stop-color="#7b2ff7" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">CyberShield</span>
+                <span class="brand-sub">CTI Platform</span>
+            </div>
+        </div>
+
+        <!-- API Status indicator -->
+        <div class="api-status-panel" id="apiStatusPanel">
+            <div class="status-header">System Status</div>
+            <div class="status-item" id="st-otx"><span class="status-dot"></span> AlienVault OTX</div>
+            <div class="status-item" id="st-vt"><span class="status-dot"></span> VirusTotal</div>
+            <div class="status-item" id="st-abuse"><span class="status-dot"></span> AbuseIPDB</div>
+            <div class="status-item" id="st-llm"><span class="status-dot"></span> LLM Engine</div>
+        </div>
+
+        <nav class="nav-menu">
+            <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" data-page="feeds" id="nav-feeds">
+                <svg viewBox="0 0 24 24">
+                    <path d="M4 11a9 9 0 0 1 9 9" />
+                    <path d="M4 4a16 16 0 0 1 16 16" />
+                    <circle cx="5" cy="19" r="1" />
+                </svg>
+                <span>Live Feeds</span>
+                <span class="nav-badge pulse">LIVE</span>
+            </button>
+            <button class="nav-item" data-page="ingest" id="nav-ingest">
+                <svg viewBox="0 0 24 24">
+                    <polyline points="16 16 12 12 8 16" />
+                    <line x1="12" y1="12" x2="12" y2="21" />
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                </svg>
+                <span>Data Ingest</span>
+            </button>
+            <button class="nav-item" data-page="ioc" id="nav-ioc">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <span>IOC Analysis</span>
+            </button>
+            <button class="nav-item" data-page="campaigns" id="nav-campaigns">
+                <svg viewBox="0 0 24 24">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                <span>Campaigns</span>
+            </button>
+            <button class="nav-item" data-page="analytics" id="nav-analytics">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+                <span>AI Analytics</span>
+            </button>
+            <button class="nav-item" data-page="analyst" id="nav-analyst">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M12 2a10 10 0 1 0 10 10A4 4 0 0 1 12 18a4 4 0 0 1-4-4 4 4 0 0 1 4-4 4 4 0 0 1 2.83 1.17L21 5" />
+                </svg>
+                <span>AI Analyst Chat</span>
+            </button>
+            <button class="nav-item" data-page="performance" id="nav-performance">
+                <svg viewBox="0 0 24 24">
+                    <line x1="18" y1="20" x2="18" y2="10" />
+                    <line x1="12" y1="20" x2="12" y2="4" />
+                    <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                <span>Performance</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="version-badge">v2.0.0 Enterprise</div>
+        </div>
+    </aside>
+
+    <!-- ─── Main Content ───────────────────────────── -->
+    <main class="main-content" id="mainContent">
+
+        <!-- Top bar -->
+        <header class="topbar">
+            <button class="menu-toggle" id="menuToggle">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="topbar-title" id="pageTitle">Dashboard</div>
+            <div class="topbar-right">
+                <div class="threat-level-pill" id="threatLevelPill">
+                    <span class="tl-dot"></span>
+                    <span class="tl-text">Loading...</span>
+                </div>
+                <div class="clock" id="clock"></div>
+            </div>
+        </header>
+
+        <!-- ═══ PAGE: DASHBOARD ══════════════════════════════════ -->
+        <section class="page active" id="page-dashboard">
+
+            <!-- KPI Cards -->
+            <div class="kpi-row" id="kpiRow">
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-blue">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-12z" />
+                            <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Total Documents</div>
+                        <div class="kpi-value" id="kpiDocs">–</div>
+                        <div class="kpi-sub">Threat Intelligence Reports</div>
+                    </div>
+                    <div class="kpi-chart-mini" id="miniChart1"></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-purple">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Active Campaigns</div>
+                        <div class="kpi-value" id="kpiCampaigns">–</div>
+                        <div class="kpi-sub">Threat Actor Groups</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-cyan">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">IOCs Tracked</div>
+                        <div class="kpi-value" id="kpiIocs">–</div>
+                        <div class="kpi-sub">Indicators of Compromise</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-red">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                    </div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Data Sources</div>
+                        <div class="kpi-value" id="kpiSources">–</div>
+                        <div class="kpi-sub">Active Feed Integrations</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Threat Map + Sector Chart row -->
+            <div class="charts-row">
+                <div class="chart-card map-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <svg viewBox="0 0 24 24">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                            </svg>
+                            Global Threat Map
+                        </div>
+                        <div class="chart-badge">LIVE</div>
+                    </div>
+                    <div id="threatMap"></div>
+                    <div class="map-legend">
+                        <span class="legend-item"><span class="legend-dot"
+                                style="background:#ff1744"></span>Critical</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#ff6d00"></span>High</span>
+                        <span class="legend-item"><span class="legend-dot"
+                                style="background:#ffd600"></span>Medium</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#00e676"></span>Low</span>
+                    </div>
+                </div>
+
+                <div class="chart-card sector-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                                <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                            </svg>
+                            Sector Attack Distribution
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="sectorChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Heatmap -->
+            <div class="chart-card heatmap-card">
+                <div class="chart-header">
+                    <div class="chart-title">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        Attack Timeline Heatmap (Last 7 Days)
+                    </div>
+                    <div class="chart-subtitle">Hour-by-Day Attack Intensity</div>
+                </div>
+                <div id="heatmapChart"></div>
+            </div>
+
+            <!-- Bottom row: Timeline + IOC Types -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                            </svg>
+                            Document Ingestion Timeline
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <path d="M3 9h18M3 15h18M9 3v18" />
+                            </svg>
+                            IOC Type Breakdown
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="iocChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Table -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title">
+                        <svg viewBox="0 0 24 24">
+                            <polyline points="9 11 12 14 22 4" />
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                        </svg>
+                        Recent Threat Documents
+                    </div>
+                    <button class="btn-sm" onclick="showPage('ingest')">+ Ingest New</button>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table" id="recentDocsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Source</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentDocsTbody">
+                            <tr>
+                                <td colspan="5" class="loading-row">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ═══ PAGE: FEEDS ═════════════════════════════════════ -->
+        <section class="page" id="page-feeds">
+            <div class="page-hero">
+                <h2 class="page-h2">Real-Time Threat Feeds</h2>
+                <p class="page-sub">Ingest live threat intelligence from global security sources</p>
+            </div>
+
+            <div class="feed-grid">
+                <div class="feed-source-card" id="feed-otx">
+                    <div class="feed-icon" style="background: linear-gradient(135deg,#ff6d00,#ff9100)">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="2" y1="12" x2="22" y2="12" />
+                            <path
+                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                    </div>
+                    <div class="feed-source-info">
+                        <div class="feed-source-name">AlienVault OTX</div>
+                        <div class="feed-source-desc">Open Threat Exchange — global community threat sharing</div>
+                    </div>
+                    <button class="btn-fetch" onclick="fetchFeed('AlienVault OTX')">Fetch</button>
+                </div>
+
+                <div class="feed-source-card" id="feed-urlhaus">
+                    <div class="feed-icon" style="background: linear-gradient(135deg,#00b0ff,#0091ea)">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                        </svg>
+                    </div>
+                    <div class="feed-source-info">
+                        <div class="feed-source-name">URLhaus</div>
+                        <div class="feed-source-desc">Malicious URL database by abuse.ch</div>
+                    </div>
+                    <button class="btn-fetch" onclick="fetchFeed('URLhaus')">Fetch</button>
+                </div>
+
+                <div class="feed-source-card" id="feed-threatfox">
+                    <div class="feed-icon" style="background: linear-gradient(135deg,#aa00ff,#7b2ff7)">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                    </div>
+                    <div class="feed-source-info">
+                        <div class="feed-source-name">ThreatFox</div>
+                        <div class="feed-source-desc">IOC database by abuse.ch — malware command & control</div>
+                    </div>
+                    <button class="btn-fetch" onclick="fetchFeed('ThreatFox')">Fetch</button>
+                </div>
+
+                <div class="feed-source-card fetch-all-card">
+                    <div class="fetch-all-content">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                        </svg>
+                        <div>
+                            <div class="feed-source-name">Fetch All Sources</div>
+                            <div class="feed-source-desc">Pull from all integrated threat intelligence providers</div>
+                        </div>
+                    </div>
+                    <button class="btn-fetch btn-primary-glow" onclick="fetchFeed('all')">Fetch All</button>
+                </div>
+            </div>
+
+            <div class="toast-area" id="feedToast"></div>
+
+            <!-- Recent feed items -->
+            <div class="chart-card" style="margin-top:1.5rem">
+                <div class="chart-header">
+                    <div class="chart-title">Latest Ingested Intelligence</div>
+                    <button class="btn-sm" onclick="loadRecentDocs()">Refresh</button>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Source</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feedDocsTbody">
+                            <tr>
+                                <td colspan="4" class="loading-row">Load feeds to see data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ═══ PAGE: INGEST ════════════════════════════════════ -->
+        <section class="page" id="page-ingest">
+            <div class="page-hero">
+                <h2 class="page-h2">Data Ingestion</h2>
+                <p class="page-sub">Upload and process threat intelligence documents</p>
+            </div>
+
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('ingest','manual',this)">Manual Upload</button>
+                <button class="tab-btn" onclick="switchTab('ingest','blog',this)">Blog / URL</button>
+                <button class="tab-btn" onclick="switchTab('ingest','kafka',this)">Kafka Stream</button>
+                <button class="tab-btn" onclick="switchTab('ingest','manage',this)">Manage Data</button>
+            </div>
+
+            <div class="tab-content active" id="ingest-tab-manual">
+                <div class="ingest-form-card">
+                    <div class="form-group">
+                        <label>Document Title</label>
+                        <input type="text" id="docTitle" class="cyber-input"
+                            placeholder="APT29 Campaign Analysis 2024..." />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Source Type</label>
+                            <select id="docSource" class="cyber-input">
+                                <option value="manual">Manual</option>
+                                <option value="blog">Blog</option>
+                                <option value="osint">OSINT</option>
+                                <option value="darkweb">Dark Web</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Source URL (optional)</label>
+                            <input type="text" id="docUrl" class="cyber-input" placeholder="https://..." />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Document Content</label>
+                        <textarea id="docContent" class="cyber-input cyber-textarea" rows="10"
+                            placeholder="Paste threat intelligence content here...
+
+Example:
+The threat actor APT29 (Cozy Bear) has been targeting government entities using CVE-2024-xxxx. The campaign uses IPs 185.234.x.x and domains like update-microsoft[.]com..."></textarea>
+                    </div>
+                    <button class="btn-primary" onclick="uploadDocument()">
+                        <svg viewBox="0 0 24 24">
+                            <polyline points="16 16 12 12 8 16" />
+                            <line x1="12" y1="12" x2="12" y2="21" />
+                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                        </svg>
+                        Process Document
+                    </button>
+                    <div class="upload-result" id="uploadResult"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="ingest-tab-blog">
+                <div class="ingest-form-card">
+                    <div class="form-group">
+                        <label>Security Blog / Article URL</label>
+                        <input type="text" id="blogUrl" class="cyber-input"
+                            placeholder="https://threatpost.com/article/..." />
+                    </div>
+                    <button class="btn-primary" onclick="ingestBlog()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                        </svg>
+                        Ingest Blog Post
+                    </button>
+                    <div class="upload-result" id="blogResult"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="ingest-tab-kafka">
+                <div class="ingest-form-card">
+                    <div class="form-group">
+                        <label>Kafka Topic Name</label>
+                        <input type="text" id="kafkaTopic" class="cyber-input" value="threat-intel-stream"
+                            placeholder="threat-intel-stream" />
+                    </div>
+                    <p style="color:var(--text-secondary); margin-bottom:1rem">Ingest streams in real-time. Matches are
+                        instantly clustered into campaigns, providing automated auto-updates and real-time fusion
+                        insights.</p>
+                    <button class="btn-primary" onclick="ingestKafka()">
+                        <svg viewBox="0 0 24 24">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Start Stream Ingestion & Auto-Cluster
+                    </button>
+                    <div class="upload-result" id="kafkaResult"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="ingest-tab-manage">
+                <div class="chart-card" style="margin-top:0">
+                    <div class="chart-header">
+                        <div class="chart-title">Stored Documents</div>
+                        <button class="btn-sm" onclick="loadManageTable()">Refresh</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Source</th>
+                                    <th>Date</th>
+                                    <th>Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody id="manageTbody">
+                                <tr>
+                                    <td colspan="5" class="loading-row">Click Refresh to load</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ═══ PAGE: IOC ═══════════════════════════════════════ -->
+        <section class="page" id="page-ioc">
+            <div class="page-hero">
+                <h2 class="page-h2">IOC Analysis</h2>
+                <p class="page-sub">Search, analyze, and correlate Indicators of Compromise</p>
+            </div>
+
+            <div class="search-bar-wrapper">
+                <div class="search-bar">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input type="text" id="iocSearch" class="search-input"
+                        placeholder="Search IOC: IP, domain, hash, URL..." />
+                    <button class="btn-primary" onclick="analyzeIoc()">Analyze</button>
+                    <button class="btn-outline" onclick="exportSTIX()" style="border-radius:24px; font-size:0.85rem">
+                        <svg viewBox="0 0 24 24"
+                            style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;margin-right:4px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Export STIX
+                    </button>
+                </div>
+            </div>
+
+            <div id="iocResult" class="ioc-result-panel" style="display:none"></div>
+
+            <div class="chart-card" style="margin-top:1.5rem">
+                <div class="chart-header">
+                    <div class="chart-title">All Tracked IOCs</div>
+                    <button class="btn-sm" onclick="loadIocs()">Refresh</button>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Confidence</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="iocTableBody">
+                            <tr>
+                                <td colspan="4" class="loading-row">Click Refresh to load</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ═══ PAGE: CAMPAIGNS ════════════════════════════════ -->
+        <section class="page" id="page-campaigns">
+            <div class="page-hero">
+                <h2 class="page-h2">Campaign Analysis</h2>
+                <p class="page-sub">Detect and analyze linked threat actor campaigns</p>
+            </div>
+
+            <div class="action-bar">
+                <button class="btn-primary" onclick="runFusion()">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="18" cy="18" r="3" />
+                        <circle cx="6" cy="6" r="3" />
+                        <path d="M13 6h3a2 2 0 0 1 2 2v7" />
+                        <line x1="6" y1="9" x2="6" y2="21" />
+                    </svg>
+                    Run Fusion Analysis
+                </button>
+                <button class="btn-outline" onclick="loadCampaigns()">Refresh</button>
+                <div id="fusionStatus" class="fusion-status"></div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title">Detected Threat Campaigns</div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Campaign Name</th>
+                                <th>Confidence</th>
+                                <th>Documents</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="campaignTbody">
+                            <tr>
+                                <td colspan="5" class="loading-row">Click Refresh to load</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ═══ PAGE: AI ANALYTICS ═══════════════════════════════ -->
+        <section class="page" id="page-analytics">
+            <div class="page-hero">
+                <h2 class="page-h2">🧠 Advanced AI-Powered Analytics</h2>
+                <p class="page-sub">Generate threat actor profiles, predict attacks, and create playbooks</p>
+            </div>
+
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchAnalyticsTab('profile', this)">🎭 Actor Profiling</button>
+                <button class="tab-btn" onclick="switchAnalyticsTab('predict', this)">🔮 Attack Prediction</button>
+                <button class="tab-btn" onclick="switchAnalyticsTab('report', this)">📋 Report Generation</button>
+                <button class="tab-btn" onclick="switchAnalyticsTab('playbook', this)">🛡️ Playbook Generation</button>
+            </div>
+
+            <!-- Profiling -->
+            <div class="tab-content active" id="analytics-tab-profile">
+                <div class="ingest-form-card">
+                    <div class="form-group">
+                        <label>Select Campaign</label>
+                        <select id="profileCampaignSelect" class="cyber-input">
+                            <option value="">-- Load Campaigns First --</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="generateProfile()">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Generate Profile
+                    </button>
+                </div>
+                <div class="chart-card" style="margin-top:1.5rem; display:none" id="profileResultCard">
+                    <div class="chart-header">
+                        <div class="chart-title">Threat Actor Profile</div>
+                    </div>
+                    <div id="profileResultBody" class="markdown-body"
+                        style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary); line-height: 1.6; white-space: pre-wrap;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prediction -->
+            <div class="tab-content" id="analytics-tab-predict">
+                <div class="ingest-form-card">
+                    <p style="color:var(--text-secondary); margin-bottom:1rem">Predict next attack vectors based on
+                        historical data.</p>
+                    <button class="btn-primary" onclick="generatePrediction()">
+                        <svg viewBox="0 0 24 24">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        Predict Next Attack
+                    </button>
+                </div>
+                <div class="chart-card" style="margin-top:1.5rem; display:none" id="predictResultCard">
+                    <div class="chart-header">
+                        <div class="chart-title">Prediction Results</div>
+                    </div>
+                    <div id="predictResultBody" class="markdown-body"
+                        style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary); line-height: 1.6; white-space: pre-wrap;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report -->
+            <div class="tab-content" id="analytics-tab-report">
+                <div class="ingest-form-card">
+                    <p style="color:var(--text-secondary); margin-bottom:1rem">Generate executive-level threat
+                        intelligence reports.</p>
+                    <div style="display:flex; gap: 1rem;">
+                        <button class="btn-primary" onclick="generateReport()">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-12z" />
+                                <polyline points="14 2 14 8 20 8" />
+                            </svg>
+                            Generate Executive Report
+                        </button>
+                        <button class="btn-outline" id="btnDownloadPdf" style="display:none;"
+                            onclick="downloadPdfReport()">
+                            <svg viewBox="0 0 24 24"
+                                style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;margin-right:4px;">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-12z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <path d="M12 18v-6" />
+                                <path d="M9 15l3 3 3-3" />
+                            </svg>
+                            Download PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="chart-card" style="margin-top:1.5rem; display:none" id="reportResultCard">
+                    <div class="chart-header">
+                        <div class="chart-title">Executive Threat Report</div>
+                    </div>
+                    <div id="reportResultBody" class="markdown-body"
+                        style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary); line-height: 1.6; white-space: pre-wrap;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playbook -->
+            <div class="tab-content" id="analytics-tab-playbook">
+                <div class="ingest-form-card">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Threat Type</label>
+                            <select id="playbookThreatType" class="cyber-input">
+                                <option value="Ransomware">Ransomware</option>
+                                <option value="Phishing">Phishing</option>
+                                <option value="Malware">Malware</option>
+                                <option value="APT">APT</option>
+                                <option value="DDoS">DDoS</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Severity</label>
+                            <select id="playbookSeverity" class="cyber-input">
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="generatePlaybook()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                        Generate Playbook
+                    </button>
+                </div>
+                <div class="chart-card" style="margin-top:1.5rem; display:none" id="playbookResultCard">
+                    <div class="chart-header">
+                        <div class="chart-title">Incident Response Playbook</div>
+                    </div>
+                    <div id="playbookResultBody" class="markdown-body"
+                        style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary); line-height: 1.6; white-space: pre-wrap;">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ PAGE: AI ANALYST ════════════════════════════════ -->
+        <section class="page" id="page-analyst">
+            <div class="page-hero">
+                <h2 class="page-h2">AI Threat Analyst Chat</h2>
+                <p class="page-sub">Ask your AI analyst anything about your threat intelligence</p>
+            </div>
+
+            <div class="chat-interface">
+                <div class="chat-window" id="chatWindow">
+                    <div class="chat-msg bot">
+                        <div class="chat-avatar">AI</div>
+                        <div class="chat-bubble">
+                            <p>Hello! I'm your AI Threat Analyst. Ask me anything about your threat intelligence data —
+                                IOCs, campaigns, attack patterns, or recommendations.</p>
+                            <p style="margin-top:.5rem;opacity:.7">Examples:<br>
+                                • "What do we know about APT29?"<br>
+                                • "Analyze IOC 192.168.1.100"<br>
+                                • "What are the most common attack techniques?"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="analystQuery" class="chat-input" placeholder="Ask the AI analyst..."
+                        onkeydown="if(event.key==='Enter') submitQuery()" />
+                    <button class="btn-primary chat-send" onclick="submitQuery()">
+                        <svg viewBox="0 0 24 24">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ═══ PAGE: PERFORMANCE ══════════════════════════════ -->
+        <section class="page" id="page-performance">
+            <div class="page-hero">
+                <h2 class="page-h2">Performance Metrics</h2>
+                <p class="page-sub">Monitor LLM inference speed, extraction latency, and throughput</p>
+            </div>
+
+            <div class="kpi-row" id="perfKpiRow">
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-cyan">⚡</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Avg LLM Response</div>
+                        <div class="kpi-value" id="perfLlmAvg">N/A</div>
+                        <div class="kpi-sub">seconds per query</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-purple">📄</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Avg Extraction Time</div>
+                        <div class="kpi-value" id="perfExtAvg">N/A</div>
+                        <div class="kpi-sub">seconds per document</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon icon-blue">🔢</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Total AI Queries</div>
+                        <div class="kpi-value" id="perfTotal">0</div>
+                        <div class="kpi-sub">processed</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">LLM Response Latency</div>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="perfLlmChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">Extraction Duration</div>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="perfExtChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title">Detailed Statistics</div>
+                    <button class="btn-sm" onclick="loadPerformance()">Refresh</button>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Operation</th>
+                                <th>Count</th>
+                                <th>Avg (s)</th>
+                                <th>Min (s)</th>
+                                <th>Max (s)</th>
+                                <th>P95 (s)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="perfTbody">
+                            <tr>
+                                <td colspan="6" class="loading-row">Perform operations to generate metrics</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Processing...</div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="notification" id="notification"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>

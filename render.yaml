@@ -1,0 +1,22 @@
+services:
+  # Streamlit UI
+  - type: web
+    name: threat-fusion-ui
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run app.py --server.port $PORT --server.address 0.0.0.0"
+    plan: starter
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+
+  # Flask API backend (optional depending on your needs, but included here)
+  - type: web
+    name: threat-fusion-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn -w 2 --timeout 120 -b 0.0.0.0:$PORT flask_app:app"
+    plan: starter
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12

@@ -40,6 +40,8 @@ cache/
 # Data
 data/
 *.json
+*.csv
+models/
 
 # OS generated files
 .DS_Store

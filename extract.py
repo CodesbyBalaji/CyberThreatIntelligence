@@ -22,15 +22,30 @@ class ThreatExtractor:
         """
         import config
         # Load configuration
-        import config
         self.provider = 'ollama'
         self.ollama_url = config.OLLAMA_URL
         self.google_api_key = None
+        
+        self.rf_model = None
+        self.scaler = None
+        try:
+            import os
+            import joblib
+            rf_path = 'models/ioc_rf_model.pkl'
+            scaler_path = 'models/ioc_scaler.pkl'
+            if os.path.exists(rf_path):
+                self.rf_model = joblib.load(rf_path)
+            if os.path.exists(scaler_path):
+                self.scaler = joblib.load(scaler_path)
+            if self.rf_model:
+                logger.info("Loaded trained Random Forest ML model for IOC classification.")
+        except Exception as e:
+            logger.warning(f"Could not load ML models or modules missing: {e}")
 
         # Regex patterns for IOC extraction
         self.ioc_patterns = {
             'ipv4': r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b',
-            'domain': r'\b[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z]{2,}\b',
+            'domain': r'\b[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?!(?:shtml|html|php|exe|dll|zip|doc|pdf|txt|csv|png|jpg|gif)\b)[a-zA-Z]{2,}\b',
             'url': r'https?://[^\s<>"\[\]{}|\\^`]+',
             'md5': r'\b[a-fA-F0-9]{32}\b',
             'sha1': r'\b[a-fA-F0-9]{40}\b',
@@ -53,23 +68,26 @@ class ThreatExtractor:
 
     def _load_attack_techniques(self) -> Dict:
         """Load MITRE ATT&CK technique mappings."""
-        # Simplified ATT&CK technique mapping
         return {
-            'T1059': {'name': 'Command and Scripting Interpreter', 'sub_techniques': {
-                'T1059.001': 'PowerShell',
-                'T1059.003': 'Windows Command Shell',
-                'T1059.006': 'Python',
-                'T1059.007': 'JavaScript'
-            }},
-            'T1055': {'name': 'Process Injection', 'sub_techniques': {}},
+            'T1566': {'name': 'Phishing', 'sub_techniques': {'T1566.001': 'Spearphishing Attachment', 'T1566.002': 'Spearphishing Link'}},
+            'T1190': {'name': 'Exploit Public-Facing Application', 'sub_techniques': {}},
+            'T1059': {'name': 'Command and Scripting Interpreter', 'sub_techniques': {'T1059.001': 'PowerShell', 'T1059.003': 'Windows Command Shell', 'T1059.004': 'Unix Shell', 'T1059.006': 'Python', 'T1059.007': 'JavaScript'}},
+            'T1053': {'name': 'Scheduled Task/Job', 'sub_techniques': {'T1053.005': 'Scheduled Task', 'T1053.003': 'cron'}},
+            'T1098': {'name': 'Account Manipulation', 'sub_techniques': {}},
+            'T1543': {'name': 'Create or Modify System Process', 'sub_techniques': {'T1543.003': 'Windows Service'}},
+            'T1055': {'name': 'Process Injection', 'sub_techniques': {'T1055.001': 'Dynamic-link Library Injection', 'T1055.012': 'Process Hollowing'}},
+            'T1027': {'name': 'Obfuscated Files or Information', 'sub_techniques': {'T1027.002': 'Software Packing'}},
+            'T1003': {'name': 'OS Credential Dumping', 'sub_techniques': {'T1003.001': 'LSASS Memory'}},
+            'T1552': {'name': 'Unsecured Credentials', 'sub_techniques': {}},
             'T1082': {'name': 'System Information Discovery', 'sub_techniques': {}},
             'T1083': {'name': 'File and Directory Discovery', 'sub_techniques': {}},
+            'T1046': {'name': 'Network Service Discovery', 'sub_techniques': {}},
+            'T1021': {'name': 'Remote Services', 'sub_techniques': {'T1021.001': 'Remote Desktop Protocol', 'T1021.002': 'SMB/Windows Admin Shares', 'T1021.004': 'SSH'}},
+            'T1560': {'name': 'Archive Collected Data', 'sub_techniques': {}},
             'T1105': {'name': 'Ingress Tool Transfer', 'sub_techniques': {}},
-            'T1566': {'name': 'Phishing', 'sub_techniques': {
-                'T1566.001': 'Spearphishing Attachment',
-                'T1566.002': 'Spearphishing Link'
-            }},
-            'T1027': {'name': 'Obfuscated Files or Information', 'sub_techniques': {}},
+            'T1571': {'name': 'Non-Standard Port', 'sub_techniques': {}},
+            'T1090': {'name': 'Proxy', 'sub_techniques': {}},
+            'T1048': {'name': 'Exfiltration Over Alternative Protocol', 'sub_techniques': {}},
             'T1486': {'name': 'Data Encrypted for Impact', 'sub_techniques': {}},
             'T1490': {'name': 'Inhibit System Recovery', 'sub_techniques': {}},
             'T1562': {'name': 'Impair Defenses', 'sub_techniques': {}}
@@ -103,11 +121,21 @@ class ThreatExtractor:
                         'extraction_method': 'regex'
                     })
 
-        # Deduplicate IOCs
+        # Deduplicate IOCs and remove partial fragments
         seen = set()
         unique_iocs = []
+        
+        # Gather all URL strings to check for substrings
+        url_values = [ioc['value'].lower() for ioc in iocs if ioc['type'] == 'url']
+        
         for ioc in iocs:
-            key = (ioc['value'].lower(), ioc['type'])
+            val_lower = ioc['value'].lower()
+            key = (val_lower, ioc['type'])
+            
+            # If this is a domain or IP, but it's just a fragment of an already extracted URL, skip it
+            if ioc['type'] in ['domain', 'ipv4'] and any(val_lower in u and val_lower != u for u in url_values):
+                continue
+                
             if key not in seen:
                 seen.add(key)
                 unique_iocs.append(ioc)
@@ -183,6 +211,53 @@ class ThreatExtractor:
 
         return context
 
+    def _extract_ioc_features(self, value: str, ioc_type: str) -> List[float]:
+        """Extract numerical features from an IOC for the ML model."""
+        import math
+        from collections import Counter
+        
+        value_lower = str(value).lower()
+        length = len(value_lower)
+        features = []
+        
+        features.append(float(length))
+        
+        num_digits = sum(c.isdigit() for c in value_lower)
+        num_alpha = sum(c.isalpha() for c in value_lower)
+        num_special = length - num_digits - num_alpha
+        
+        features.append(num_digits / length if length > 0 else 0.0)
+        features.append(num_alpha / length if length > 0 else 0.0)
+        features.append(num_special / length if length > 0 else 0.0)
+        
+        features.append(float(value_lower.count('.')))
+        features.append(float(value_lower.count('-')))
+        
+        counts = Counter(value_lower)
+        entropy = -sum((count/length) * math.log2(count/length) for count in counts.values()) if length > 0 else 0.0
+        features.append(entropy)
+        
+        features.append(1.0 if 'http://' in value_lower else 0.0)
+        features.append(1.0 if 'https://' in value_lower else 0.0)
+        
+        return features
+
+    def ml_predict_ioc(self, value: str, ioc_type: str) -> float:
+        """Predict malice confidence using the trained Random Forest model."""
+        if not self.rf_model or ioc_type not in ['url', 'domain', 'ipv4', 'email']:
+            return -1.0 # ML not supported or model not loaded
+            
+        try:
+            features = self._extract_ioc_features(value, ioc_type)
+            if self.scaler:
+                features = self.scaler.transform([features])[0]
+                
+            probability = self.rf_model.predict_proba([features])[0][1]
+            return probability
+        except Exception as e:
+            logger.warning(f"ML prediction failed for {value}: {e}")
+            return -1.0
+
     def extract_ttps_llm(self, text: str) -> List[Dict]:
         """
         Extract TTPs using LLM prompts.
@@ -223,14 +298,30 @@ class ThreatExtractor:
 
         # Keyword mappings to MITRE techniques
         technique_keywords = {
+            'T1566.001': ['phishing', 'malicious attachment', 'spearphishing'],
+            'T1566.002': ['malicious link', 'phishing link', 'malicious url'],
+            'T1190': ['exploit', 'vulnerability', 'cve-', 'rce', 'sql injection'],
             'T1059.001': ['powershell', 'ps1', 'invoke-expression', 'iex'],
             'T1059.003': ['cmd.exe', 'command prompt', 'batch script', 'cmd /c'],
-            'T1566.001': ['phishing', 'malicious attachment', 'email attachment'],
-            'T1566.002': ['malicious link', 'phishing link', 'malicious url'],
-            'T1027': ['obfuscation', 'encoded', 'base64', 'encrypted'],
-            'T1486': ['ransomware', 'file encryption', 'data encrypted'],
-            'T1105': ['download', 'remote file', 'file transfer'],
-            'T1082': ['system information', 'os version', 'system discovery']
+            'T1059.004': ['bash', 'sh file', 'unix shell'],
+            'T1053.005': ['scheduled task', 'schtasks'],
+            'T1543.003': ['windows service', 'sc.exe', 'create service'],
+            'T1055': ['process injection', 'dll injection', 'process hollowing'],
+            'T1027': ['obfuscation', 'encoded', 'base64', 'encrypted wrapper'],
+            'T1003.001': ['mimikatz', 'lsass', 'credential dumping'],
+            'T1082': ['system information', 'os version', 'system discovery', 'whoami'],
+            'T1083': ['file and directory discovery', 'dir /s', 'findstr'],
+            'T1046': ['port scan', 'nmap', 'network discovery'],
+            'T1021.001': ['rdp', 'remote desktop', 'port 3389'],
+            'T1021.002': ['smb', 'admin$', 'ipc$', 'psexec'],
+            'T1021.004': ['ssh', 'secure shell', 'port 22'],
+            'T1105': ['download file', 'remote file', 'file transfer', 'wget', 'curl'],
+            'T1571': ['non-standard port', 'custom port'],
+            'T1560': ['archive data', 'zip file', 'compress data', 'tar.gz'],
+            'T1048': ['exfiltration', 'data export', 'upload data'],
+            'T1486': ['ransomware', 'file encryption', 'data encrypted', 'ransom note'],
+            'T1490': ['inhibit recovery', 'vssadmin', 'delete shadow copies', 'recovery disabled'],
+            'T1562': ['disable antivirus', 'disable firewall', 'impair defenses']
         }
 
         for technique_id, keywords in technique_keywords.items():
@@ -453,12 +544,12 @@ Return only the JSON array with valid IOCs:"""
                 json_text = response[json_start:json_end]
                 verified = json.loads(json_text)
 
-                # Match with original IOCs and update confidence
+                # Match with original IOCs and add LLM confidence without overwriting ML maliciousness
                 verified_iocs = []
                 for original in original_iocs:
                     for ver in verified:
                         if original['value'] == ver['value']:
-                            original['confidence'] = ver.get('confidence', original['confidence'])
+                            original['llm_confidence'] = ver.get('confidence', 0.8)
                             original['llm_verified'] = True
                             verified_iocs.append(original)
                             break
@@ -488,6 +579,21 @@ Return only the JSON array with valid IOCs:"""
 
         # Extract IOCs
         iocs = self.extract_iocs_regex(text)
+        
+        # Apply Machine Learning classification for IOCs (URLs, IPs, email)
+        for ioc in iocs:
+            # We don't apply ML prediction to domains/IPs directly because the ML model
+            # was trained on full URLs and heavily biases raw domains without paths as malicious.
+            if ioc['type'] != 'url':
+                continue
+                
+            ml_confidence = self.ml_predict_ioc(ioc['value'], ioc['type'])
+            if ml_confidence >= 0:
+                ioc['ml_confidence'] = float(ml_confidence)
+                # Let the Machine Learning model dictate the true malicious confidence
+                ioc['confidence'] = float(ml_confidence)
+                ioc['extraction_method'] = str(ioc.get('extraction_method', 'regex')) + ' + ml_model'
+
         verified_iocs = self.verify_iocs_llm(iocs)
 
         # Extract TTPs
